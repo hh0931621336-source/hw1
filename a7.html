@@ -1,0 +1,328 @@
+<!DOCTYPE html>
+<html lang="zh-Hant">
+<head>
+    <meta charset="UTF-8">
+    <meta name="viewport" content="width=device-width, initial-scale=1.0">
+    <meta name="theme-color" content="#08131b">
+    <title>霓虹打磚塊｜NEON BREAK</title>
+    <style>
+        * { box-sizing: border-box; }
+        :root { color-scheme: dark; --ink: #f4fff9; --mint: #8fffd2; --orange: #ff8159; --muted: #91aaa4; }
+        body { margin: 0; min-height: 100vh; display: grid; place-items: center; padding: 22px 14px; color: var(--ink); background: radial-gradient(ellipse at 50% 4%, #19413e 0, #0b201f 34%, #08131b 74%); font-family: "Trebuchet MS", "Microsoft JhengHei", sans-serif; }
+        .game { width: min(100%, 790px); }
+        .topline { display: flex; align-items: end; justify-content: space-between; gap: 16px; margin: 0 4px 14px; }
+        .brand { display: flex; align-items: center; gap: 12px; }
+        .brand-mark { width: 35px; height: 35px; display: grid; place-items: center; border: 1px solid #8fffd277; color: var(--mint); transform: rotate(45deg); font-size: 17px; box-shadow: 0 0 20px #3dffc733; }
+        .brand-mark span { transform: rotate(-45deg); }
+        h1 { margin: 0; font-size: clamp(20px, 5vw, 30px); line-height: 1; letter-spacing: .04em; }
+        .eyebrow { margin: 0 0 6px; color: var(--orange); font-size: 10px; font-weight: 900; letter-spacing: .22em; }
+        .sound { display: flex; align-items: center; gap: 8px; padding: 9px 12px; border: 1px solid #96c5b533; border-radius: 4px; color: #ddfff2; background: #102522; font: inherit; font-size: 12px; font-weight: 700; cursor: pointer; }
+        .sound:hover { border-color: var(--mint); }
+        .sound-icon { width: 16px; color: var(--mint); font-size: 15px; }
+        .hud { display: grid; grid-template-columns: repeat(3, 1fr); gap: 1px; margin-bottom: 9px; background: #8fffd222; border: 1px solid #8fffd222; }
+        .stat { display: flex; align-items: baseline; justify-content: space-between; gap: 6px; padding: 10px 14px; background: #0c1b20; }
+        .stat-label { color: var(--muted); font-size: 11px; font-weight: 800; letter-spacing: .12em; }
+        .stat strong { color: white; font-size: 20px; font-variant-numeric: tabular-nums; }
+        .arena { position: relative; height: min(67vh, 610px); min-height: 400px; overflow: hidden; border: 1px solid #8fffd244; background: radial-gradient(ellipse at 50% 40%, #12322d 0, #0a1b20 68%, #081217 100%); box-shadow: 0 18px 65px #0008, 0 0 28px #42eab319; }
+        canvas { display: block; width: 100%; height: 100%; touch-action: none; }
+        .overlay { position: absolute; inset: 0; z-index: 2; display: grid; place-items: center; padding: 20px; background: #071319b8; text-align: center; backdrop-filter: blur(3px); }
+        .overlay[hidden] { display: none; }
+        .panel { max-width: 360px; }
+        .panel-kicker { color: var(--orange); font-size: 11px; font-weight: 900; letter-spacing: .24em; }
+        .panel h2 { margin: 10px 0 8px; color: var(--mint); font-size: clamp(28px, 7vw, 42px); line-height: 1; text-shadow: 0 0 24px #51ffd355; }
+        .panel p { margin: 0 0 20px; color: #c0d5d0; font-size: 14px; line-height: 1.8; }
+        .start { padding: 12px 26px; border: 0; border-radius: 3px; color: #071b18; background: linear-gradient(110deg, #a1ffd5, #d5ff6b); box-shadow: 0 0 25px #80ffb344; font: inherit; font-size: 15px; font-weight: 900; cursor: pointer; }
+        .start:hover { filter: brightness(1.08); transform: translateY(-1px); }
+        .help { display: flex; justify-content: center; gap: 18px; flex-wrap: wrap; padding: 12px 4px 0; color: #9ab5ae; font-size: 12px; }
+        .help b { color: #e4fff5; }
+        .error { position: absolute; inset: auto 12px 12px; color: #ffc1a9; font-size: 12px; text-align: center; }
+        @media (max-width: 520px) {
+            body { padding: 16px 10px; }
+            .topline { margin-bottom: 12px; }
+            .brand-mark { width: 30px; height: 30px; }
+            .stat { padding: 9px 10px; flex-direction: column; gap: 2px; }
+            .stat strong { font-size: 18px; }
+            .arena { height: 64vh; min-height: 390px; }
+            .help { gap: 8px 16px; font-size: 11px; }
+        }
+    </style>
+    <script type="importmap">
+        { "imports": { "three": "https://cdn.jsdelivr.net/npm/three@0.168.0/build/three.module.js", "three/addons/": "https://cdn.jsdelivr.net/npm/three@0.168.0/examples/jsm/" } }
+    </script>
+</head>
+<body>
+    <main class="game">
+        <header class="topline">
+            <div class="brand"><div class="brand-mark"><span>✦</span></div><div><p class="eyebrow">ARCADE / 01</p><h1>霓虹打磚塊</h1></div></div>
+            <button class="sound" id="soundToggle" type="button" aria-pressed="true"><span class="sound-icon" id="soundIcon">♫</span><span id="soundLabel">音效開</span></button>
+        </header>
+        <section class="hud" aria-label="遊戲狀態">
+            <div class="stat"><span class="stat-label">分數</span><strong id="score">0000</strong></div>
+            <div class="stat"><span class="stat-label">剩餘球數</span><strong id="lives">3</strong></div>
+            <div class="stat"><span class="stat-label">最高紀錄</span><strong id="best">0000</strong></div>
+        </section>
+        <div class="arena" id="arena">
+            <canvas id="game" aria-label="3D 霓虹打磚塊遊戲場景"></canvas>
+            <div class="overlay" id="overlay"><div class="panel"><div class="panel-kicker">READY PLAYER ONE</div><h2 id="message">準備開打？</h2><p id="instructions">用擋板接住光球，把每一塊霓虹磚都打掉。<br>鍵盤使用 ← → 或 A、D 移動。</p><button class="start" id="start" type="button">開始遊戲</button></div></div>
+            <p class="error" id="error" hidden>3D 場景載入失敗，請確認網路連線後重新整理。</p>
+        </div>
+        <div class="help"><span><b>← →</b> 移動</span><span><b>滑鼠 / 手指</b> 拖曳擋板</span><span>接球、清空磚塊，挑戰最高分</span></div>
+    </main>
+    <script type="module">
+        import * as THREE from 'three';
+        import { RoundedBoxGeometry } from 'three/addons/geometries/RoundedBoxGeometry.js';
+
+        const canvas = document.querySelector('#game');
+        const arena = document.querySelector('#arena');
+        const overlay = document.querySelector('#overlay');
+        const startButton = document.querySelector('#start');
+        const scoreNode = document.querySelector('#score');
+        const livesNode = document.querySelector('#lives');
+        const bestNode = document.querySelector('#best');
+        const errorNode = document.querySelector('#error');
+        const FIELD_W = 14;
+        const FIELD_H = 20;
+        const COLORS = [0xff5e73, 0xffa34e, 0xffdf5b, 0x8dff73, 0x54f4dc];
+        const scene = new THREE.Scene();
+        const camera = new THREE.PerspectiveCamera(40, 1, 0.1, 100);
+        const renderer = new THREE.WebGLRenderer({ canvas, alpha: true, antialias: true });
+        renderer.setPixelRatio(Math.min(window.devicePixelRatio || 1, 1.7));
+        renderer.shadowMap.enabled = true;
+        renderer.shadowMap.type = THREE.PCFSoftShadowMap;
+        renderer.toneMapping = THREE.ACESFilmicToneMapping;
+        renderer.toneMappingExposure = 1.25;
+        scene.add(new THREE.HemisphereLight(0xc7fff1, 0x173432, 2.2));
+        const keyLight = new THREE.DirectionalLight(0xffffff, 3.1);
+        keyLight.position.set(-5, 8, 13);
+        keyLight.castShadow = true;
+        keyLight.shadow.mapSize.set(1024, 1024);
+        scene.add(keyLight);
+        const rimLight = new THREE.PointLight(0x43ffd2, 24, 20);
+        rimLight.position.set(6, -5, 5);
+        scene.add(rimLight);
+
+        const board = new THREE.Mesh(new THREE.PlaneGeometry(FIELD_W, FIELD_H), new THREE.MeshStandardMaterial({ color: 0x102321, roughness: 0.8, metalness: 0.15 }));
+        board.position.z = -0.45;
+        board.receiveShadow = true;
+        scene.add(board);
+        const gridPoints = [];
+        for (let x = -6; x <= 6; x += 1) gridPoints.push(x, -9.8, -0.42, x, 9.8, -0.42);
+        for (let y = -9; y <= 9; y += 1) gridPoints.push(-6.8, y, -0.42, 6.8, y, -0.42);
+        const gridGeometry = new THREE.BufferGeometry();
+        gridGeometry.setAttribute('position', new THREE.Float32BufferAttribute(gridPoints, 3));
+        scene.add(new THREE.LineSegments(gridGeometry, new THREE.LineBasicMaterial({ color: 0x52bc9d, transparent: true, opacity: 0.12 })));
+
+        const wallMaterial = new THREE.MeshStandardMaterial({ color: 0x63edc3, emissive: 0x1c8d69, emissiveIntensity: 0.6, metalness: 0.7, roughness: 0.25 });
+        function addWall(x, y, width, height) {
+            const wall = new THREE.Mesh(new RoundedBoxGeometry(width, height, 0.7, 3, 0.12), wallMaterial);
+            wall.position.set(x, y, 0);
+            wall.receiveShadow = true;
+            wall.castShadow = true;
+            scene.add(wall);
+        }
+        addWall(-6.95, 0, 0.18, 19.8);
+        addWall(6.95, 0, 0.18, 19.8);
+        addWall(0, 9.85, 13.9, 0.18);
+
+        const brickWidth = 1.54;
+        const brickHeight = 0.62;
+        const brickGap = 0.17;
+        const bricks = [];
+        const brickGroup = new THREE.Group();
+        scene.add(brickGroup);
+        const brickGeo = new RoundedBoxGeometry(brickWidth, brickHeight, 0.66, 4, 0.11);
+        function makeBricks() {
+            brickGroup.clear();
+            bricks.length = 0;
+            for (let row = 0; row < 5; row++) {
+                for (let col = 0; col < 7; col++) {
+                    const material = new THREE.MeshStandardMaterial({ color: COLORS[row], emissive: COLORS[row], emissiveIntensity: 0.34, metalness: 0.3, roughness: 0.27 });
+                    const brick = new THREE.Mesh(brickGeo, material);
+                    brick.position.set((col - 3) * (brickWidth + brickGap), 8.5 - row * 0.94, 0.15);
+                    brick.castShadow = true;
+                    brick.receiveShadow = true;
+                    brickGroup.add(brick);
+                    bricks.push(brick);
+                }
+            }
+        }
+        makeBricks();
+
+        const paddle = new THREE.Mesh(new RoundedBoxGeometry(2.35, 0.42, 0.8, 5, 0.16), new THREE.MeshStandardMaterial({ color: 0x91ffe0, emissive: 0x24ac85, emissiveIntensity: 0.72, metalness: 0.55, roughness: 0.22 }));
+        paddle.position.set(0, -8.15, 0.48);
+        paddle.castShadow = true;
+        scene.add(paddle);
+        const ball = new THREE.Mesh(new THREE.SphereGeometry(0.27, 28, 20), new THREE.MeshStandardMaterial({ color: 0xffffff, emissive: 0xafffee, emissiveIntensity: 2.1, roughness: 0.12, metalness: 0.18 }));
+        ball.castShadow = true;
+        scene.add(ball);
+        const ballLight = new THREE.PointLight(0x8effdf, 7, 4);
+        scene.add(ballLight);
+
+        let width = 1;
+        let height = 1;
+        let running = false;
+        let score = 0;
+        let lives = 3;
+        let velocity = new THREE.Vector2(3.3, 8.2);
+        let audio = null;
+        let audioEnabled = true;
+        let lastTime = 0;
+        const keys = new Set();
+        const bestKey = 'neonBreakBest';
+        bestNode.textContent = String(Number(localStorage.getItem(bestKey) || 0)).padStart(4, '0');
+
+        function resize() {
+            const rect = arena.getBoundingClientRect();
+            width = rect.width;
+            height = rect.height;
+            renderer.setSize(width, height, false);
+            camera.aspect = width / height;
+            const halfFov = THREE.MathUtils.degToRad(camera.fov / 2);
+            const distance = Math.max(FIELD_H / 2, FIELD_W / (2 * camera.aspect)) / Math.tan(halfFov) * 1.13;
+            camera.position.set(0, -1.15, distance);
+            camera.lookAt(0, 0, 0);
+            camera.updateProjectionMatrix();
+        }
+
+        function tone(frequency, duration, type = 'sine', volume = 0.045) {
+            if (!audioEnabled || !audio) return;
+            const oscillator = audio.createOscillator();
+            const gain = audio.createGain();
+            oscillator.type = type;
+            oscillator.frequency.setValueAtTime(frequency, audio.currentTime);
+            gain.gain.setValueAtTime(volume, audio.currentTime);
+            gain.gain.exponentialRampToValueAtTime(0.001, audio.currentTime + duration);
+            oscillator.connect(gain);
+            gain.connect(audio.destination);
+            oscillator.start();
+            oscillator.stop(audio.currentTime + duration);
+        }
+
+        function resetBall() {
+            paddle.position.x = 0;
+            ball.position.set(0, -7.25, 0.72);
+            velocity.set((Math.random() < 0.5 ? -1 : 1) * 3.2, 8.1);
+        }
+
+        function begin() {
+            audio = audio || new (window.AudioContext || window.webkitAudioContext)();
+            if (audio.state === 'suspended') audio.resume();
+            score = 0;
+            lives = 3;
+            scoreNode.textContent = '0000';
+            livesNode.textContent = lives;
+            makeBricks();
+            resetBall();
+            running = true;
+            overlay.hidden = true;
+            lastTime = 0;
+            requestAnimationFrame(animate);
+        }
+
+        function finish(won) {
+            running = false;
+            const best = Math.max(score, Number(localStorage.getItem(bestKey) || 0));
+            localStorage.setItem(bestKey, best);
+            bestNode.textContent = String(best).padStart(4, '0');
+            document.querySelector('#message').textContent = won ? '全數擊破！' : '再來一局？';
+            document.querySelector('#instructions').innerHTML = `本局得分：${score}<br>${won ? '漂亮的全壘打！' : '再試一次，刷新你的最高紀錄。'}`;
+            document.querySelector('.panel-kicker').textContent = won ? 'LEVEL CLEARED' : 'GAME OVER';
+            startButton.textContent = '重新開始';
+            overlay.hidden = false;
+            tone(won ? 740 : 130, 0.3, won ? 'triangle' : 'sawtooth', 0.06);
+        }
+
+        function setPaddleFromPointer(clientX) {
+            const rect = canvas.getBoundingClientRect();
+            paddle.position.x = THREE.MathUtils.clamp(((clientX - rect.left) / rect.width - 0.5) * FIELD_W, -5.65, 5.65);
+        }
+
+        function update(delta) {
+            const move = (keys.has('ArrowLeft') || keys.has('a') || keys.has('A') ? -1 : 0) + (keys.has('ArrowRight') || keys.has('d') || keys.has('D') ? 1 : 0);
+            if (move) paddle.position.x = THREE.MathUtils.clamp(paddle.position.x + move * 10 * delta, -5.65, 5.65);
+            ball.position.x += velocity.x * delta;
+            ball.position.y += velocity.y * delta;
+
+            if (ball.position.x < -6.52 || ball.position.x > 6.52) {
+                ball.position.x = THREE.MathUtils.clamp(ball.position.x, -6.52, 6.52);
+                velocity.x *= -1;
+                tone(340, 0.045, 'sine', 0.025);
+            }
+            if (ball.position.y > 9.38) {
+                ball.position.y = 9.38;
+                velocity.y = -Math.abs(velocity.y);
+                tone(420, 0.06, 'sine', 0.03);
+            }
+            if (velocity.y < 0 && ball.position.y - 0.27 < paddle.position.y + 0.24 && ball.position.y > paddle.position.y - 0.28 && Math.abs(ball.position.x - paddle.position.x) < 1.42) {
+                const hit = (ball.position.x - paddle.position.x) / 1.2;
+                const speed = Math.min(11.5, velocity.length() + 0.12);
+                velocity.set(hit * speed * 0.78, Math.sqrt(speed * speed - velocity.x * velocity.x));
+                ball.position.y = paddle.position.y + 0.52;
+                tone(590, 0.08, 'triangle', 0.05);
+            }
+            if (ball.position.y < -10.15) {
+                lives--;
+                livesNode.textContent = lives;
+                tone(115, 0.28, 'square', 0.04);
+                if (lives <= 0) { finish(false); return; }
+                resetBall();
+            }
+
+            for (let index = bricks.length - 1; index >= 0; index--) {
+                const brick = bricks[index];
+                if (!brick.visible) continue;
+                if (Math.abs(ball.position.x - brick.position.x) < brickWidth / 2 + 0.27 && Math.abs(ball.position.y - brick.position.y) < brickHeight / 2 + 0.27) {
+                    brick.visible = false;
+                    velocity.y *= -1;
+                    score += 10;
+                    scoreNode.textContent = String(score).padStart(4, '0');
+                    tone(260 + (index % 7) * 55, 0.11, 'triangle', 0.045);
+                    if (bricks.every(item => !item.visible)) finish(true);
+                    break;
+                }
+            }
+        }
+
+        function animate(time) {
+            requestAnimationFrame(animate);
+            const delta = Math.min((time - (lastTime || time)) / 1000, 0.035);
+            lastTime = time;
+            if (running) update(delta);
+            ballLight.position.copy(ball.position);
+            ball.rotation.x += 0.015;
+            ball.rotation.y += 0.02;
+            paddle.rotation.x = 0.04;
+            renderer.render(scene, camera);
+        }
+
+        startButton.addEventListener('click', begin);
+        document.querySelector('#soundToggle').addEventListener('click', event => {
+            audioEnabled = !audioEnabled;
+            event.currentTarget.setAttribute('aria-pressed', String(audioEnabled));
+            document.querySelector('#soundIcon').textContent = audioEnabled ? '♫' : '♪̸';
+            document.querySelector('#soundLabel').textContent = audioEnabled ? '音效開' : '音效關';
+            if (audioEnabled) tone(620, 0.08, 'triangle');
+        });
+        window.addEventListener('keydown', event => {
+            if (['ArrowLeft', 'ArrowRight', ' '].includes(event.key)) event.preventDefault();
+            keys.add(event.key);
+        });
+        window.addEventListener('keyup', event => keys.delete(event.key));
+        canvas.addEventListener('pointermove', event => {
+            if (event.buttons || event.pointerType === 'touch') setPaddleFromPointer(event.clientX);
+        });
+        canvas.addEventListener('pointerdown', event => {
+            canvas.setPointerCapture(event.pointerId);
+            setPaddleFromPointer(event.clientX);
+        });
+        window.addEventListener('resize', resize);
+        resize();
+        requestAnimationFrame(animate);
+    </script>
+    <script>
+        window.addEventListener('error', event => {
+            if (event.message && event.message.includes('Failed to fetch dynamically imported module')) document.querySelector('#error').hidden = false;
+        });
+    </script>
+</body>
+</html>
